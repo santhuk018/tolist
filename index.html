@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website To-Do List</title>
+<meta name="description" content="A simple editable to-do list, synced across devices.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --ink: #1C1C1C;
+    --muted: #6B6B6B;
+    --faint: #9A9A9A;
+    --accent: #2E5D4B;
+    --accent-soft: #E7EFEA;
+    --line: #E3E3DF;
+    --danger: #B5473A;
+    --warn: #96631A;
+    --warn-soft: #FBF1DF;
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 100px;
+  }
+
+  header {
+    margin-bottom: 40px;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 6vw, 42px);
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .status {
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .status.synced { color: var(--accent); background: var(--accent-soft); }
+  .status.local { color: var(--warn); background: var(--warn-soft); }
+
+  header p {
+    color: var(--muted);
+    margin: 0;
+    max-width: 56ch;
+  }
+
+  .progress {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.25s ease;
+  }
+
+  .progress-label {
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ---------- Table ---------- */
+  .list-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr 40px 32px;
+    gap: 16px;
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--ink);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 40px 32px;
+    gap: 16px;
+    align-items: start;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .row.done .task-field {
+    color: var(--faint);
+    text-decoration: line-through;
+    text-decoration-color: var(--faint);
+  }
+
+  .field {
+    font-size: 15px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    outline: none;
+    min-height: 1.4em;
+    word-break: break-word;
+    border: 1px solid transparent;
+  }
+
+  .field:focus {
+    border-color: var(--line);
+    background: #FAFAF8;
+  }
+
+  .field:empty::before {
+    content: attr(data-placeholder);
+    color: var(--faint);
+  }
+
+  .remark-field {
+    color: var(--muted);
+  }
+
+  .check-cell {
+    display: flex;
+    justify-content: center;
+    padding-top: 6px;
+  }
+
+  .check-cell input[type="checkbox"] {
+    width: 19px;
+    height: 19px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .del-cell {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+  }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--faint);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+  }
+
+  .del-btn:hover {
+    color: var(--danger);
+    background: #FBEDEB;
+  }
+
+  /* ---------- Add row ---------- */
+  .add-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .add-row input {
+    flex: 1;
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    outline: none;
+  }
+
+  .add-row input:focus {
+    border-color: var(--accent);
+  }
+
+  .add-row button {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    color: #FFFFFF;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    padding: 11px 20px;
+    cursor: pointer;
+  }
+
+  .add-row button:hover {
+    background: #274F40;
+  }
+
+  .add-row button:disabled {
+    background: var(--faint);
+    cursor: not-allowed;
+  }
+
+  .empty-state {
+    padding: 40px 4px;
+    color: var(--faint);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .setup-note {
+    margin-top: 28px;
+    padding: 16px 18px;
+    background: var(--warn-soft);
+    color: #6B4A12;
+    border-radius: 6px;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .setup-note code {
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12.5px;
+  }
+
+  footer {
+    margin-top: 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--faint);
+  }
+
+  .reset-btn {
+    background: none;
+    border: none;
+    color: var(--faint);
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .reset-btn:hover { color: var(--danger); }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 40px 18px 80px; }
+    .list-head { display: none; }
+    .row {
+      grid-template-columns: 1fr 32px;
+      grid-template-areas:
+        "task check"
+        "remark del";
+      row-gap: 6px;
+    }
+    .task-field { grid-area: task; }
+    .check-cell { grid-area: check; padding-top: 2px; }
+    .remark-field { grid-area: remark; }
+    .del-cell { grid-area: del; padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="title-row">
+      <h1>Website To-Do List</h1>
+      <span class="status" id="statusBadge">Checking sync…</span>
+    </div>
+    <p>Tasks for building and launching the site. Click any text to edit it, check items off as you go.</p>
+    <div class="progress">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <span class="progress-label" id="progressLabel">0 of 0 done</span>
+    </div>
+  </header>
+
+  <div class="list-head">
+    <span>Task</span>
+    <span>Remark / Suggestion</span>
+    <span style="text-align:center;">Done</span>
+    <span></span>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div class="add-row">
+    <input type="text" id="newTask" placeholder="Add a new task…" maxlength="200">
+    <button id="addBtn">Add</button>
+  </div>
+
+  <div class="setup-note" id="setupNote" style="display:none;">
+    <strong>Sync isn't set up yet.</strong> This list is only saving in this browser right now.
+    Add your free Firebase config in <code>index.html</code> (look for <code>EDIT: paste your Firebase config here</code>)
+    to sync this list across every device. See the setup steps you were given alongside this file.
+  </div>
+
+  <footer>
+    <span id="storageNote">Saved in this browser only</span>
+    <button class="reset-btn" id="resetBtn">Reset to default list</button>
+  </footer>
+</div>
+
+<script type="module">
+  /* Firebase is loaded dynamically (below, only if firebaseConfig is set)
+     so this file works completely offline in local-only mode — it never
+     even requests the Firebase SDK unless sync is configured. */
+
+  /* =======================================================
+     EDIT: paste your Firebase config here.
+     Get this from the Firebase console → Project settings → General
+     → "Your apps" → the web app (</>) you registered.
+     Leave firebaseConfig as null to run in local-only mode.
+     ======================================================= */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBkMBmDRh9xDZCk3v6VIQTwO85Tn8v79RM",
+    authDomain: "ozolzzeon.firebaseapp.com",
+    projectId: "ozolzzeon",
+    storageBucket: "ozolzzeon.firebasestorage.app",
+    messagingSenderId: "645210594173",
+    appId: "1:645210594173:web:333167f3a29863bc8b8a14"
+  };
+  /* Example:
+  const firebaseConfig = {
+    apiKey: "AIzaSy...",
+    authDomain: "your-project.firebaseapp.com",
+    projectId: "your-project",
+    storageBucket: "your-project.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef123456"
+  };
+  */
+
+  const STORAGE_KEY = 'website-todo-items-v1';
+
+  const defaultItems = [
+    { task: 'Create a GitHub account', remark: '', done: false },
+    { task: 'Create a new repository (e.g. username.github.io)', remark: '', done: false },
+    { task: 'Decide on site type: plain HTML/CSS or a static site generator', remark: '', done: false },
+    { task: 'Set up local project folder and initialize git', remark: '', done: false },
+    { task: 'Build homepage (index.html)', remark: '', done: false },
+    { task: 'Add core pages (About, Projects, Contact)', remark: '', done: false },
+    { task: 'Add styling (CSS or a framework)', remark: '', done: false },
+    { task: 'Make the site responsive (mobile-friendly)', remark: '', done: false },
+    { task: 'Write and commit README.md', remark: '', done: false },
+    { task: 'Push code to GitHub', remark: '', done: false },
+    { task: 'Enable GitHub Pages in repo settings', remark: '', done: false },
+    { task: 'Test the live site URL', remark: '', done: false },
+    { task: 'Set up a custom domain', remark: 'Optional', done: false },
+    { task: 'Share the site', remark: '', done: false },
+  ];
+
+  const listEl = document.getElementById('list');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const statusBadge = document.getElementById('statusBadge');
+  const storageNote = document.getElementById('storageNote');
+  const setupNote = document.getElementById('setupNote');
+  const addBtn = document.getElementById('addBtn');
+  const newTaskInput = document.getElementById('newTask');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let items = [];          // in-memory list: { id, task, remark, done }
+  let cloudMode = false;
+  let db = null;
+  let todosCol = null;
+  // Firestore functions, populated only once the SDK loads (see initCloud)
+  let addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs;
+
+  function setStatus(mode) {
+    if (mode === 'synced') {
+      statusBadge.textContent = 'Synced across devices';
+      statusBadge.className = 'status synced';
+      storageNote.textContent = 'Changes sync to every device automatically';
+      setupNote.style.display = 'none';
+    } else {
+      statusBadge.textContent = 'Local only';
+      statusBadge.className = 'status local';
+      storageNote.textContent = 'Saved in this browser only';
+      setupNote.style.display = 'block';
+    }
+  }
+
+  /* ---------------- Local-storage mode ---------------- */
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore corrupt storage */ }
+    return defaultItems.map((i, idx) => ({ id: 'local-' + idx, ...i }));
+  }
+
+  function saveLocal() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    updateProgress();
+  }
+
+  /* ---------------- Cloud (Firestore) mode ---------------- */
+  async function initCloud() {
+    try {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js");
+      const {
+        getFirestore, collection, addDoc: _addDoc, updateDoc: _updateDoc, deleteDoc: _deleteDoc, doc: _doc,
+        onSnapshot, query, orderBy, serverTimestamp: _serverTimestamp, writeBatch: _writeBatch, getDocs: _getDocs
+      } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
+
+      // expose the pieces used elsewhere in this file
+      addDoc = _addDoc; updateDoc = _updateDoc; deleteDoc = _deleteDoc; doc = _doc;
+      serverTimestamp = _serverTimestamp; writeBatch = _writeBatch; getDocs = _getDocs;
+
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      todosCol = collection(db, 'todos');
+
+      // Seed the collection once if it's empty, so new devices see a starter list.
+      const existing = await getDocs(todosCol);
+      if (existing.empty) {
+        const batch = writeBatch(db);
+        defaultItems.forEach((item) => {
+          const ref = doc(todosCol);
+          batch.set(ref, { ...item, createdAt: serverTimestamp() });
+        });
+        await batch.commit();
+      }
+
+      const q = query(todosCol, orderBy('createdAt', 'asc'));
+      onSnapshot(q, (snapshot) => {
+        items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        render();
+      }, (err) => {
+        console.error('Firestore sync error:', err);
+        setStatus('local');
+      });
+
+      cloudMode = true;
+      setStatus('synced');
+    } catch (err) {
+      console.error('Firebase init failed, falling back to local storage:', err);
+      cloudMode = false;
+      items = loadLocal();
+      setStatus('local');
+      render();
+    }
+  }
+
+  /* ---------------- Shared render + actions ---------------- */
+  function updateProgress() {
+    const total = items.length;
+    const done = items.filter(i => i.done).length;
+    progressFill.style.width = total ? `${(done / total) * 100}%` : '0%';
+    progressLabel.textContent = total ? `${done} of ${total} done` : 'No tasks yet';
+  }
+
+  function persistItem(id, patch) {
+    if (cloudMode) {
+      updateDoc(doc(todosCol, id), patch).catch(err => console.error(err));
+    } else {
+      const idx = items.findIndex(i => i.id === id);
+      if (idx !== -1) items[idx] = { ...items[idx], ...patch };
+      saveLocal();
+    }
+  }
+
+  function removeItem(id) {
+    if (cloudMode) {
+      deleteDoc(doc(todosCol, id)).catch(err => console.error(err));
+    } else {
+      items = items.filter(i => i.id !== id);
+      saveLocal();
+      render();
+    }
+  }
+
+  async function addItem(task) {
+    if (cloudMode) {
+      await addDoc(todosCol, { task, remark: '', done: false, createdAt: serverTimestamp() });
+    } else {
+      items.push({ id: 'local-' + Date.now(), task, remark: '', done: false });
+      saveLocal();
+      render();
+    }
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No tasks yet — add one below.';
+      listEl.appendChild(empty);
+      updateProgress();
+      return;
+    }
+
+    items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'row' + (item.done ? ' done' : '');
+
+      const taskField = document.createElement('div');
+      taskField.className = 'field task-field';
+      taskField.contentEditable = 'true';
+      taskField.setAttribute('data-placeholder', 'Task…');
+      taskField.textContent = item.task || '';
+      taskField.addEventListener('blur', () => {
+        const val = taskField.textContent.trim();
+        if (val !== item.task) persistItem(item.id, { task: val });
+      });
+      taskField.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); taskField.blur(); }
+      });
+
+      const remarkField = document.createElement('div');
+      remarkField.className = 'field remark-field';
+      remarkField.contentEditable = 'true';
+      remarkField.setAttribute('data-placeholder', 'Add a note…');
+      remarkField.textContent = item.remark || '';
+      remarkField.addEventListener('blur', () => {
+        const val = remarkField.textContent.trim();
+        if (val !== item.remark) persistItem(item.id, { remark: val });
+      });
+      remarkField.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); remarkField.blur(); }
+      });
+
+      const checkCell = document.createElement('div');
+      checkCell.className = 'check-cell';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!item.done;
+      checkbox.addEventListener('change', () => {
+        row.classList.toggle('done', checkbox.checked);
+        persistItem(item.id, { done: checkbox.checked });
+      });
+      checkCell.appendChild(checkbox);
+
+      const delCell = document.createElement('div');
+      delCell.className = 'del-cell';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'del-btn';
+      delBtn.innerHTML = '&times;';
+      delBtn.setAttribute('aria-label', 'Delete task');
+      delBtn.addEventListener('click', () => removeItem(item.id));
+      delCell.appendChild(delBtn);
+
+      row.appendChild(taskField);
+      row.appendChild(remarkField);
+      row.appendChild(checkCell);
+      row.appendChild(delCell);
+      listEl.appendChild(row);
+    });
+
+    updateProgress();
+  }
+
+  addBtn.addEventListener('click', handleAdd);
+  newTaskInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleAdd();
+  });
+
+  function handleAdd() {
+    const val = newTaskInput.value.trim();
+    if (!val) return;
+    addItem(val);
+    newTaskInput.value = '';
+  }
+
+  resetBtn.addEventListener('click', async () => {
+    if (!confirm('Reset the list back to the default starter tasks? This clears the current list everywhere it syncs.')) return;
+    if (cloudMode) {
+      const existing = await getDocs(todosCol);
+      const batch = writeBatch(db);
+      existing.docs.forEach(d => batch.delete(d.ref));
+      defaultItems.forEach((item) => {
+        const ref = doc(todosCol);
+        batch.set(ref, { ...item, createdAt: serverTimestamp() });
+      });
+      await batch.commit();
+    } else {
+      items = defaultItems.map((i, idx) => ({ id: 'local-' + idx, ...i }));
+      saveLocal();
+      render();
+    }
+  });
+
+  /* ---------------- Boot ---------------- */
+  if (firebaseConfig) {
+    setStatus('local'); // shown briefly until cloud connects
+    initCloud();
+  } else {
+    items = loadLocal();
+    setStatus('local');
+    render();
+  }
+</script>
+
+</body>
+</html>
