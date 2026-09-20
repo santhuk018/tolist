@@ -110,9 +110,9 @@
   /* ---------- Table ---------- */
   .list-head {
     display: grid;
-    grid-template-columns: 1fr 1fr 40px 32px;
+    grid-template-columns: 1fr 1fr 44px 64px 32px;
     gap: 16px;
-    padding: 0 4px 10px;
+    padding: 0 8px 10px;
     border-bottom: 1px solid var(--ink);
     font-size: 12.5px;
     font-weight: 600;
@@ -126,17 +126,33 @@
 
   .row {
     display: grid;
-    grid-template-columns: 1fr 1fr 40px 32px;
+    grid-template-columns: 1fr 1fr 44px 64px 32px;
     gap: 16px;
     align-items: start;
-    padding: 14px 4px;
+    padding: 14px 8px;
     border-bottom: 1px solid var(--line);
+    border-left: 4px solid transparent;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Green row when "Done" is ticked */
+  .row.done {
+    background: #DCF2E3;
+    border-left-color: #2E9E5B;
   }
 
   .row.done .task-field {
-    color: var(--faint);
+    color: #1F6B40;
     text-decoration: line-through;
-    text-decoration-color: var(--faint);
+    text-decoration-color: #2E9E5B;
+  }
+
+  .row.done .remark-field {
+    color: #3F7F5A;
+  }
+
+  .row.done .field:focus {
+    background: #EDF9F1;
   }
 
   .field {
@@ -163,17 +179,26 @@
     color: var(--muted);
   }
 
-  .check-cell {
+  .check-cell,
+  .next-cell {
     display: flex;
     justify-content: center;
     padding-top: 6px;
   }
 
-  .check-cell input[type="checkbox"] {
+  .check-cell input[type="checkbox"],
+  .next-cell input[type="checkbox"] {
     width: 19px;
     height: 19px;
     accent-color: var(--accent);
     cursor: pointer;
+  }
+
+  /* Small labels next to the checkboxes; only shown on mobile (no header there) */
+  .cell-label {
+    display: none;
+    font-size: 12px;
+    color: var(--muted);
   }
 
   .del-cell {
@@ -289,16 +314,20 @@
     .wrap { padding: 40px 18px 80px; }
     .list-head { display: none; }
     .row {
-      grid-template-columns: 1fr 32px;
+      grid-template-columns: 1fr auto auto 32px;
       grid-template-areas:
-        "task check"
-        "remark del";
+        "task task task task"
+        "remark check next del";
       row-gap: 6px;
+      column-gap: 12px;
+      align-items: center;
     }
     .task-field { grid-area: task; }
-    .check-cell { grid-area: check; padding-top: 2px; }
     .remark-field { grid-area: remark; }
+    .check-cell { grid-area: check; padding-top: 0; gap: 6px; align-items: center; }
+    .next-cell { grid-area: next; padding-top: 0; gap: 6px; align-items: center; }
     .del-cell { grid-area: del; padding-top: 0; }
+    .cell-label { display: inline; }
   }
 </style>
 </head>
@@ -321,6 +350,7 @@
     <span>Task</span>
     <span>Remark / Suggestion</span>
     <span style="text-align:center;">Done</span>
+    <span style="text-align:center;">Packed</span>
     <span></span>
   </div>
 
@@ -515,9 +545,9 @@
 
   async function addItem(task) {
     if (cloudMode) {
-      await addDoc(todosCol, { task, remark: '', done: false, createdAt: serverTimestamp() });
+      await addDoc(todosCol, { task, remark: '', done: false, nextTime: false, createdAt: serverTimestamp() });
     } else {
-      items.push({ id: 'local-' + Date.now(), task, remark: '', done: false });
+      items.push({ id: 'local-' + Date.now(), task, remark: '', done: false, nextTime: false });
       saveLocal();
       render();
     }
@@ -574,7 +604,27 @@
         row.classList.toggle('done', checkbox.checked);
         persistItem(item.id, { done: checkbox.checked });
       });
+      const doneLabel = document.createElement('span');
+      doneLabel.className = 'cell-label';
+      doneLabel.textContent = 'Done';
       checkCell.appendChild(checkbox);
+      checkCell.appendChild(doneLabel);
+
+      // "Packed" checkbox (older tasks without this field count as unchecked)
+      const nextCell = document.createElement('div');
+      nextCell.className = 'next-cell';
+      const nextBox = document.createElement('input');
+      nextBox.type = 'checkbox';
+      nextBox.checked = !!item.nextTime;
+      nextBox.setAttribute('aria-label', 'Select for Packed');
+      nextBox.addEventListener('change', () => {
+        persistItem(item.id, { nextTime: nextBox.checked });
+      });
+      const nextLabel = document.createElement('span');
+      nextLabel.className = 'cell-label';
+      nextLabel.textContent = 'Packed';
+      nextCell.appendChild(nextBox);
+      nextCell.appendChild(nextLabel);
 
       const delCell = document.createElement('div');
       delCell.className = 'del-cell';
@@ -588,6 +638,7 @@
       row.appendChild(taskField);
       row.appendChild(remarkField);
       row.appendChild(checkCell);
+      row.appendChild(nextCell);
       row.appendChild(delCell);
       listEl.appendChild(row);
     });
